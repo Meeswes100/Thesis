@@ -1,0 +1,226 @@
+import geopandas as gpd
+import pandas as pd
+
+#Check if they have the samne names
+
+
+df = pd.read_parquet(r"DATA\admin1_dataset.parquet")
+gdf = gpd.read_file(r"DATA\afg_admin1.shp")
+
+
+df["ADMIN1_clean"] = (
+    df["ADMIN1"]
+    .astype(str)
+    .str.strip()
+    .str.lower()
+)
+
+gdf["adm1_clean"] = (
+    gdf["adm1_name"]
+    .astype(str)
+    .str.strip()
+    .str.lower()
+)
+
+df_admins = sorted(df["ADMIN1_clean"].unique())
+shp_admins = sorted(gdf["adm1_clean"].unique())
+
+print("Parquet provinces:", len(df_admins))
+print("Shapefile provinces:", len(shp_admins))
+
+missing_in_shp = sorted(set(df_admins) - set(shp_admins))
+missing_in_df  = sorted(set(shp_admins) - set(df_admins))
+
+print("\nIn parquet but NOT in shapefile:")
+print(missing_in_shp)
+
+print("\nIn shapefile but NOT in parquet:")
+print(missing_in_df)
+
+# rename the ones that where not good
+rename_map = {
+    "maidan wardak": "wardak",
+    "panjsher": "panjshir",
+    "sar-e-pul": "sari pul",
+}
+
+gdf["adm1_clean"] = gdf["adm1_clean"].replace(rename_map)
+
+# recheck
+df_admins = sorted(df["ADMIN1_clean"].unique())
+shp_admins = sorted(gdf["adm1_clean"].unique())
+
+missing_in_shp = sorted(set(df_admins) - set(shp_admins))
+missing_in_df  = sorted(set(shp_admins) - set(df_admins))
+
+
+print("after correction")
+print("In parquet but NOT in shapefile:", missing_in_shp)
+print("In shapefile but NOT in parquet:", missing_in_df)
+
+import json
+import numpy as np
+import pandas as pd
+import geopandas as gpd
+import torch
+
+# -----------------------------
+# Paths
+# -----------------------------
+PARQUET_PATH = r"DATA\admin1_dataset.parquet"
+SHP_PATH     = r"DATA\afg_admin1.shp"
+
+OUT_NODE_MAP = r"DATA\node_map.json"
+OUT_EDGE_PT  = r"DATA\edge_index.pt"
+OUT_EDGE_CSV = r"DATA\edge_list.csv"
+OUT_X        = r"DATA\X.npy"
+OUT_Y        = r"DATA\y.npy"
+OUT_T        = r"DATA\months.npy"   # to keep the time axis
+
+# -----------------------------
+# Load data
+# -----------------------------
+df = pd.read_parquet(PARQUET_PATH)
+gdf = gpd.read_file(SHP_PATH)
+
+# -----------------------------
+# Standardize names (same as before)
+# -----------------------------
+df["ADMIN1_clean"] = df["ADMIN1"].astype(str).str.strip().str.lower()
+gdf["adm1_clean"]  = gdf["adm1_name"].astype(str).str.strip().str.lower()
+
+# If you used a rename_map earlier, apply it here too so it stays consistent:
+rename_map = {
+    "maidan wardak": "wardak",
+    "panjsher": "panjshir",
+    "sar-e-pul": "sari pul",
+}
+gdf["adm1_clean"] = gdf["adm1_clean"].replace(rename_map)
+
+# -----------------------------
+# Freeze node ordering from parquet (source of truth)
+# -----------------------------
+admin_list = sorted(df["ADMIN1_clean"].unique())
+node_map = {name: i for i, name in enumerate(admin_list)}
+N = len(admin_list)
+
+with open(OUT_NODE_MAP, "w") as f:
+    json.dump(node_map, f, indent=2)
+
+print("Saved node_map:", OUT_NODE_MAP)
+print("Num nodes:", N)
+
+# -----------------------------
+# Filter shapefile to only those provinces in parquet
+# -----------------------------
+gdf2 = gdf[gdf["adm1_clean"].isin(node_map.keys())].copy().reset_index(drop=True)
+
+# Fix invalid geometries (safe)
+gdf2["geometry"] = gdf2["geometry"].buffer(0)
+
+# -----------------------------
+# Build queen contiguity edges using touches()
+# -----------------------------
+edges = []
+edge_rows = []
+
+for i in range(len(gdf2)):
+    name_i = gdf2.loc[i, "adm1_clean"]
+    geom_i = gdf2.loc[i, "geometry"]
+
+    for j in range(i + 1, len(gdf2)):
+        name_j = gdf2.loc[j, "adm1_clean"]
+        geom_j = gdf2.loc[j, "geometry"]
+
+        if geom_i.touches(geom_j):
+            u = node_map[name_i]
+            v = node_map[name_j]
+
+            edges.append((u, v))
+            edges.append((v, u))
+
+            edge_rows.append((u, v, name_i, name_j))
+            edge_rows.append((v, u, name_j, name_i))
+
+edge_df = pd.DataFrame(edge_rows, columns=["u", "v", "admin_u", "admin_v"])
+edge_df.to_csv(OUT_EDGE_CSV, index=False)
+
+edge_index = torch.tensor(edges, dtype=torch.long).t().contiguous()
+torch.save(edge_index, OUT_EDGE_PT)
+
+print("Saved edge list:", OUT_EDGE_CSV)
+print("Saved edge_index:", OUT_EDGE_PT)
+print("edge_index shape:", tuple(edge_index.shape))
+
+# Build spatio-temporal tensors X[t, n, f] and y[t, n]
+TARGET = "ipc_phase_fews"
+ID_COLS = ["year_month", "ADMIN0", "ADMIN1", TARGET]  # keep simple
+FEATURES = [c for c in df.columns if c not in ID_COLS and c != "ADMIN1_clean"]
+
+# Sort time + province
+df["year_month"] = pd.to_datetime(df["year_month"])
+df = df.sort_values(["year_month", "ADMIN1_clean"]).reset_index(drop=True)
+
+# Map province -> node
+df["node_id"] = df["ADMIN1_clean"].map(node_map)
+
+# Time index
+months = np.sort(df["year_month"].unique())
+T = len(months)
+month_to_t = {m: i for i, m in enumerate(months)}
+df["t"] = df["year_month"].map(month_to_t)
+
+# Allocate arrays
+F = len(FEATURES)
+X = np.full((T, N, F), np.nan, dtype=np.float32)
+y = np.full((T, N), np.nan, dtype=np.float32)
+
+# Fill arrays
+for _, r in df.iterrows():
+    t = int(r["t"])
+    n = int(r["node_id"])
+    X[t, n, :] = r[FEATURES].to_numpy(dtype=np.float32)
+    y[t, n] = float(r[TARGET])
+
+# Save time axis & tensors
+np.save(OUT_X, X)
+np.save(OUT_Y, y)
+np.save(OUT_T, months.astype("datetime64[ns]"))
+
+print("Saved X:", OUT_X, "shape:", X.shape)
+print("Saved y:", OUT_Y, "shape:", y.shape)
+print("Saved months:", OUT_T, "T:", T)
+
+# -----------------------------
+# Sanity checks
+# -----------------------------
+# 1) Graph degrees
+deg = torch.bincount(edge_index[0], minlength=N)
+print("\n--- Graph checks ---")
+print("Min degree:", int(deg.min()), "Max degree:", int(deg.max()))
+print("Any isolated nodes?", bool((deg == 0).any().item()))
+print("Max node id in edges:", int(edge_index.max()))
+
+# 2) Missing data checks
+print("\n--- Tensor checks ---")
+nan_X = np.isnan(X).any(axis=2)  # [T, N]
+nan_y = np.isnan(y)             # [T, N]
+print("Any missing X rows?", bool(nan_X.any()))
+print("Any missing y?", bool(nan_y.any()))
+
+# Show months/nodes with missingness (if any)
+if nan_X.any():
+    t_idx, n_idx = np.where(nan_X)
+    print("Example missing X at:", "t=", int(t_idx[0]), "node=", int(n_idx[0]), "month=", months[t_idx[0]])
+if nan_y.any():
+    t_idx, n_idx = np.where(nan_y)
+    print("Example missing y at:", "t=", int(t_idx[0]), "node=", int(n_idx[0]), "month=", months[t_idx[0]])
+
+# 3) Class distribution (after your clipping rule)
+y_clip = np.clip(y, None, 3)  # clip upper to 3 like your code
+y_mapped = (y_clip - 1).astype(np.int32)  # 0..2
+valid = ~np.isnan(y)
+vals = y_mapped[valid]
+print("\n--- Label checks ---")
+print("Unique mapped labels:", sorted(set(vals.tolist())))
+print("Counts:", {k: int((vals == k).sum()) for k in sorted(set(vals.tolist()))})

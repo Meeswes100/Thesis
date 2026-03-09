@@ -1,0 +1,110 @@
+import pandas as pd
+import numpy as np
+
+# ----------------------------
+# Load
+# ----------------------------
+df = pd.read_parquet(r"DATA\part_0000.parquet")
+
+TIME  = "year_month"
+A1    = "ADMIN1"
+A2    = "ADMIN2"
+FEWS  = "ipc_phase_fews"
+IPCCH = "ipc_phase_ipcch"
+
+df[FEWS]  = pd.to_numeric(df[FEWS], errors="coerce")
+df[IPCCH] = pd.to_numeric(df[IPCCH], errors="coerce")
+
+# ==========================================================
+# 1) FUNCTION: Spatial variation inside ADMIN1
+# ==========================================================
+def admin2_variation(data, target_name):
+    
+    d = data[[TIME, A1, A2, target_name]].dropna()
+    
+    # For each ADMIN1-month, check variation across ADMIN2
+    grouped = d.groupby([A1, TIME]).agg(
+        n_admin2 = (A2, "nunique"),
+        std_phase = (target_name, "std"),
+        min_phase = (target_name, "min"),
+        max_phase = (target_name, "max")
+    ).reset_index()
+    
+    grouped["all_same"] = grouped["min_phase"] == grouped["max_phase"]
+    grouped["range"] = grouped["max_phase"] - grouped["min_phase"]
+    
+    print("\n====================================")
+    print(f"Spatial variation inside ADMIN1 ({target_name})")
+    print("====================================")
+    
+    print("Total ADMIN1-month observations:", len(grouped))
+    print("Average number of ADMIN2 per ADMIN1:", grouped["n_admin2"].mean())
+    
+    share_same = grouped["all_same"].mean()
+    print(f"% ADMIN1-months where all ADMIN2 identical: {share_same:.1%}")
+    print(f"% ADMIN1-months with variation: {(1-share_same):.1%}")
+    
+    print("\nDistribution of phase range inside ADMIN1:")
+    print(grouped["range"].value_counts().sort_index())
+    
+    return grouped
+
+# Run for FEWS and IPCCH
+var_fews  = admin2_variation(df, FEWS)
+var_ipcch = admin2_variation(df, IPCCH)
+
+# ==========================================================
+# 2) COVERAGE COMPARISON
+# ==========================================================
+
+print("\n====================================")
+print("Coverage comparison FEWS vs IPCCH")
+print("====================================")
+
+def coverage_stats(data, target_name):
+    d = data[data[target_name].notna()]
+    
+    return {
+        "admin1_count": d[A1].nunique(),
+        "admin2_count": d[A2].nunique(),
+        "months_count": d[TIME].nunique(),
+        "admin1_month_pairs": d.groupby([A1, TIME]).ngroups
+    }
+
+cov_fews  = coverage_stats(df, FEWS)
+cov_ipcch = coverage_stats(df, IPCCH)
+
+print("\nFEWS coverage:", cov_fews)
+print("IPCCH coverage:", cov_ipcch)
+
+# ==========================================================
+# 3) Do they cover the same months?
+# ==========================================================
+
+months_fews  = set(df.loc[df[FEWS].notna(), TIME].unique())
+months_ipcch = set(df.loc[df[IPCCH].notna(), TIME].unique())
+
+common_months = months_fews.intersection(months_ipcch)
+
+print("\n====================================")
+print("Month overlap")
+print("====================================")
+
+print("FEWS months:", len(months_fews))
+print("IPCCH months:", len(months_ipcch))
+print("Common months:", len(common_months))
+
+# ==========================================================
+# 4) Do they cover the same ADMIN1s?
+# ==========================================================
+
+admin1_fews  = set(df.loc[df[FEWS].notna(), A1].unique())
+admin1_ipcch = set(df.loc[df[IPCCH].notna(), A1].unique())
+
+print("\n====================================")
+print("ADMIN1 overlap")
+print("====================================")
+
+print("FEWS ADMIN1:", len(admin1_fews))
+print("IPCCH ADMIN1:", len(admin1_ipcch))
+print("Common ADMIN1:", len(admin1_fews.intersection(admin1_ipcch)))
