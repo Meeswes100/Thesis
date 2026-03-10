@@ -19,7 +19,7 @@ from xgboost.callback import EarlyStopping
 # -----------------------------
 # Load data
 # -----------------------------
-DATA_PATH = r"DATA\admin1_dataset_spatial_small.parquet"
+DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_spatial_small.parquet"
 df = pd.read_parquet(DATA_PATH)
 
 df.drop(columns=["year"], inplace=True)       #Remove year to not see tempral pattern so much 
@@ -97,7 +97,7 @@ sample_weights = y_train.map(class_weight_dict)
 # These settings are conservative for small-ish tabular datasets.
 # You can tune n_estimators, max_depth, learning_rate, subsample, colsample_bytree.
 model = XGBClassifier(
-    n_estimators=200,
+    n_estimators=210,
     learning_rate=0.03,
     max_depth=4,
     min_child_weight=5,
@@ -120,7 +120,7 @@ model.fit(
     X_train,
     y_train,
     sample_weight=sample_weights,   
-    verbose=100,
+    verbose=30,
     eval_set=[(X_test, y_test)]
 )
 
@@ -167,6 +167,6 @@ print(importances.head(20))
 # -----------------------------
 out = df.loc[test_mask, ["year_month", "ADMIN0", "ADMIN1", TARGET]].copy()
 out["pred_xgb"] = pred
-out_path = r"DATA/xgb_predictions.csv"
+out_path = r"C:\Users\meesw\projects\Thesis\DATA\xgb_predictions.csv"
 out.to_csv(out_path, index=False)
 print(f"\nSaved test predictions to: {out_path}")

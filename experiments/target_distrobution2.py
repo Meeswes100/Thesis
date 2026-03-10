@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # -----------------------------
 # Load data
 # -----------------------------
-DATA_PATH = r"DATA/admin1_dataset.parquet"
+DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_v2.parquet"
 df = pd.read_parquet(DATA_PATH)
 
 df["year_month"] = pd.to_datetime(df["year_month"])
@@ -14,7 +14,7 @@ TARGET = "ipc_phase_fews"
 # -----------------------------
 # Time-based split (last N months as test)
 # -----------------------------
-TEST_MONTHS = 6
+TEST_MONTHS = 12
 unique_months = np.sort(df["year_month"].unique())
 if len(unique_months) <= TEST_MONTHS:
     raise ValueError(f"Not enough months ({len(unique_months)}) for TEST_MONTHS={TEST_MONTHS}")

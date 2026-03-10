@@ -1,3 +1,18 @@
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Python
+__pycache__/
+*.pyc
+
+# Data
 DATA/
 *.parquet
+*.npy
+*.pt
 *.csv
+
+# temp files
+tempCodeRunnerFile.py

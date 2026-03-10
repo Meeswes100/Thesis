@@ -59,7 +59,7 @@ FEATURES_BASELINE = [
 
 
 
-df = pd.read_parquet("DATA\part_0000.parquet")
+df = pd.read_parquet(r"C:\Users\meesw\projects\Thesis\DATA\part_0000.parquet")
 
 df = df[ID_COLS + FEATURES_BASELINE]
 
@@ -349,7 +349,7 @@ print("distorbution of target variable: ")
 
 print(df_admin1["ipc_phase_fews"].value_counts(normalize=True))
 
-df_admin1.to_parquet("DATA/admin1_dataset.parquet", index=False)
+df_admin1.to_parquet(r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_v2.parquet", index=False)
 
 
 
