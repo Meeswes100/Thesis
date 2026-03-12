@@ -10,9 +10,9 @@ FEATURES_BASELINE = [
 
     # food scores
 #    "fcs_lit",          #proportion of population with poor/borderline food consumption.    # litrature is more stable but less frequent
-#    "rcsi_lit",         #Proportion of population using severe coping strategies. 
+#    "rcsi_lit",         #Proportion of population using severe coping strategies.
 #    "fcs_rt mean",      #more frequent less stable
-#    "rcsi_rt mean",    Almost no data avainable
+#    "rcsi_rt mean",    #Almost no data avainable
 
     # Agroclimatology (weather/vegetation/drought) 
     "mean_SPI3_crop",  #short term drought
@@ -349,7 +349,7 @@ print("distorbution of target variable: ")
 
 print(df_admin1["ipc_phase_fews"].value_counts(normalize=True))
 
-df_admin1.to_parquet(r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_v2.parquet", index=False)
+#df_admin1.to_parquet(r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_.parquet", index=False)
 
 
 

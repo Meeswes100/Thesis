@@ -7,7 +7,7 @@ import seaborn as sns
 # =========================================================
 # SETTINGS
 # =========================================================
-DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\part_0000.parquet"
+DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_v2.parquet"
 OUTPUT_DIR = r"C:\Users\meesw\projects\Thesis\EDA_admin1"
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -52,22 +52,7 @@ print(df.groupby("ADMIN1")["year_month"].nunique().describe())
 # =========================================================
 # MISSING VALUES
 # =========================================================
-print("\n" + "=" * 60)
-print("MISSING VALUES")
-print("=" * 60)
 
-missing = df.isna().mean().sort_values(ascending=False)
-print(missing)
-
-missing.to_csv(os.path.join(OUTPUT_DIR, "missing_values.csv"))
-
-plt.figure(figsize=(10, 8))
-missing[missing > 0].sort_values().plot(kind="barh")
-plt.title("Missing share by variable")
-plt.xlabel("Share missing")
-plt.tight_layout()
-plt.savefig(os.path.join(OUTPUT_DIR, "missing_values.png"), dpi=300)
-plt.close()
 
 # =========================================================
 # TARGET DISTRIBUTION

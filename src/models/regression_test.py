@@ -10,7 +10,7 @@ from sklearn.metrics import r2_score, mean_absolute_error, mean_squared_error
 # -----------------------------
 # Load data
 # -----------------------------
-DATA_PATH = r"DATA/admin1_dataset.parquet"
+DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_v2.parquet"
 df = pd.read_parquet(DATA_PATH)
 
 # Ensure correct dtypes / ordering
@@ -20,20 +20,18 @@ df = df.sort_values(["year_month", "ADMIN1"]).reset_index(drop=True)
 TARGET = "ipc_phase_fews"
 ID_COLS_ADMIN1 = ["year_month", "ADMIN0", "ADMIN1", TARGET]  # ids + target
 
+# Remove to test presistence
+REMOVE_FEATURES = [
+    "year",
+    "ipc_phase_fews_lag1",
+    "ipc_phase_fews_lag3"
+]
 
-# -----------------------------
-# Features / target
-# -----------------------------
-FEATURES = [c for c in df.columns if c not in ID_COLS_ADMIN1]
+FEATURES = [c for c in df.columns if c not in ID_COLS_ADMIN1 + REMOVE_FEATURES]
 
 X = df[FEATURES]
 y = df[TARGET]
 
-
-# -----------------------------
-# Time-based split (no leakage)
-# Choose the last N months as test set
-# -----------------------------
 TEST_MONTHS = 6
 
 unique_months = np.sort(df["year_month"].unique())
@@ -51,10 +49,6 @@ print(f"Train rows: {X_train.shape[0]}, Test rows: {X_test.shape[0]}")
 print(f"Train months: {df.loc[train_mask, 'year_month'].nunique()}, Test months: {df.loc[test_mask, 'year_month'].nunique()}")
 print(f"Num features: {len(FEATURES)}")
 
-
-# -----------------------------
-# Model: Scaler + Ridge regression
-# -----------------------------
 ALPHA = 1.0  # regularization strength; try 0.1, 1, 10
 model = Pipeline([
     ("scaler", StandardScaler()),
@@ -63,10 +57,6 @@ model = Pipeline([
 
 model.fit(X_train, y_train)
 
-
-# -----------------------------
-# Evaluate
-# -----------------------------
 pred = model.predict(X_test)
 
 r2 = r2_score(y_test, pred)

@@ -34,9 +34,9 @@ from sklearn.preprocessing import StandardScaler
 # =============================
 # Config
 # =============================
-PARQUET_PATH = r"DATA\admin1_dataset.parquet"
-EDGE_INDEX_PATH = r"DATA\edge_index.pt"
-NODE_MAP_PATH = r"DATA\node_map.json"
+PARQUET_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset.parquet"
+EDGE_INDEX_PATH = r"C:\Users\meesw\projects\Thesis\DATA\edge_index.pt"
+NODE_MAP_PATH = r"C:\Users\meesw\projects\Thesis\DATA\node_map.json"
 
 TARGET = "ipc_phase_fews"
 TEST_MONTHS = 6

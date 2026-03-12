@@ -19,10 +19,12 @@ from xgboost.callback import EarlyStopping
 # -----------------------------
 # Load data
 # -----------------------------
-DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_spatial_small.parquet"
+#DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_spatial_small.parquet"
+DATA_PATH = r"C:\Users\meesw\projects\Thesis\DATA\admin1_dataset_v2.parquet"
+
 df = pd.read_parquet(DATA_PATH)
 
-df.drop(columns=["year"], inplace=True)       #Remove year to not see tempral pattern so much 
+df.drop(columns=["year", "ipc_phase_fews_lag3", "ipc_phase_fews_lag1"], inplace=True)       #Remove year to not see tempral pattern so much
 
 df["year_month"] = pd.to_datetime(df["year_month"])
 df = df.sort_values(["year_month", "ADMIN1"]).reset_index(drop=True)
@@ -53,7 +55,7 @@ X_train, X_test = X.loc[train_mask], X.loc[test_mask]
 y_train, y_test = y.loc[train_mask], y.loc[test_mask]
 
 y_train = y_train.clip(upper=3)
-y_test  = y_test.clip(upper=3)
+y_test  = y_test.clip(upper=3)                  # Clipped the target variable to max 3 because there is only one 4
 
 # map to 0..3
 y_train = (y_train - 1).astype(int)
